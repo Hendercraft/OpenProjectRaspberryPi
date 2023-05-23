@@ -20,15 +20,15 @@ It's possible to get OpenProject working on a Raspberry Pi. I highly recommend a
 
 ## I just want to give this a go quickly - is there a ready-made system image?
 
-I prepared a Raspian lite-based image in Feb 2021, which should get anyone up and running in half an hour, but has some security issues, unless passwords are changes, etc.
+MadewhatNow prepared a Raspian lite-based image in Feb 2021, which should get anyone up and running in half an hour, but has some security issues, unless passwords are changes, etc.
 
 The image file is [here](https://drive.google.com/file/d/1qBzWME8BCVja0HickLo_SOcvsUL5sUEC/view?usp=sharing), around 12gb and should fit any 16gb+ memory card. It does require a RPi4, with ideally 2 or 4gb memory. SSH is enabled (pi//raspberry), OpenProject is still on the default login (admin//admin), and you will have to enable wifi (/etc/wpa-supplicant/wpa-supplicant) or ethernet to connect to the system. Then set up email notificatiosns in OpenProject (see below). 
 
 I'm curious to hear about any issues or success stories!
 
-## Status (Feb 2021)
+## Status (May 2023)
 
-I original wrote the instructions in February 2020, for OpenProject 10 - and while they (mostly) worked, they were still somewhat buggy in an unpredictable way. I have received a surprising amount of emails asking for the system image, or various fixes, and finally revisited the protocol in 2021. OpenProject recently released version 11 - and somewhat surprisingly, in 2021 the process is a lot smoother. Starting with a Raspian Lite image on a  RPi 4, the whole process was done in a few hours, with minimal issues. The protocol below is updated to reflect the required changes. 
+This guide is based on MadewhatNow guide and is focused on getting Op version 12.5 stable up and running with an appache server, if you're looking to use HTTPS/TLS encyption i remmande you take a look at https://letsencrypt.org/fr/
 
 There is an ongoing discussion in the OpenProject forum regarding tweaks and fixes: https://community.openproject.org/topics/6873
 ## Key issues
@@ -119,7 +119,11 @@ postgres=# \du
 
 ## Preparing software packages
 
-Following the manual installation suggestions, rbenv is used to install Ruby. Whenever possible, I use all four cores to speed up compiling (hence the **-j 4** flags). These tasks have to be done as the openproject user, hence the **su -- openproject** command.  
+Following the manual installation suggestions, rbenv is used to install Ruby. Whenever possible, I use all four cores to speed up compiling (hence the **-j 4** flags). These tasks have to be done as the openproject user, hence the **su -- openproject** command. For Op 12.5 i'm using ruby 3.2.1, you can check what ruby version the Op you wish to install on their github : 
+
+https://github.com/opf/openproject/blob/release/12.5/.ruby-version
+
+You just have to select the release you wish to install
 
 ```
 sudo su -- openproject -login
@@ -128,14 +132,14 @@ echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.profile
 echo 'eval "$(rbenv init -)"' >> ~/.profile
 source ~/.profile
 git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build
-MAKE_OPTS="-j 4" rbenv install 2.7.2
+MAKE_OPTS="-j 4" rbenv install 3.2.1
 rbenv rehash
-rbenv global 2.7.2
+rbenv global 3.2.1
 
 ```
 This will take 15 minutes. 
 
-Earlier version of the protocol required an older (2.6) version, now 2.7.2 compiles just fine. 
+Earlier version of the protocol required an older (2.6) version, now 3.2.1 compiles just fine. 
 
 Check version with
 ```
@@ -143,6 +147,8 @@ ruby --version
 ```
 
 Following the manual installation suggestions, nodenv is used to install Ruby. Whenever possible, I use all four cores to speed up compiling (watch out for the **-j 4** flags).
+For Op 12.5, node 16.17.0 is used, again you can check the package.json of your desired version and replace it in the snippet below
+https://github.com/opf/openproject/blob/release/12.5/package.json
 
 ```
 git clone https://github.com/OiNutter/nodenv.git ~/.nodenv
@@ -150,7 +156,7 @@ echo 'export PATH="$HOME/.nodenv/bin:$PATH"' >> ~/.profile
 echo 'eval "$(nodenv init -)"' >> ~/.profile
 source ~/.profile
 git clone git://github.com/OiNutter/node-build.git ~/.nodenv/plugins/node-build
-MAKE_OPTS="-j 4" nodenv install 13.7.0
+MAKE_OPTS="-j 4" nodenv install 16.17.0 
 nodenv rehash
 nodenv global 13.7.0
 ```
@@ -159,11 +165,11 @@ This will take 1 minute.
 
 ## Compile and install OpenProject
 
-Careful - the manual installation I linked to above still uses stable/9, the current release is stable/11 (as of Feb 2021). So, using release stable/11 here. Earlier issues with bcrypt and other gems appear to have resolved themselves. 
+Careful - the manual installation I linked to above still uses stable/9, the current release is stable/12 (as of May 2023). 
 
 ```
 cd ~
-git clone https://github.com/opf/openproject.git --branch stable/11--depth 1
+git clone https://github.com/opf/openproject.git --branch stable/12--depth 1
 cd openproject
 gem update --system 
 gem install bundler
@@ -197,7 +203,8 @@ production:
 ```
   
 ### Email & memcache:
- 
+The guide made by MadewhatNow used gmail, but I personally used Sendgrid.
+I didn't use the config file but rather configured the smtp server in the app via the admin interface
 Create an app password for gmail, and include it in the config file. Make sure to keep the .yml layout intact. 
  ```
    cp config/configuration.yml.example config/configuration.yml
@@ -254,7 +261,7 @@ Install passenger for 'ruby', when asked.
 
 In  /etc/apache2/mods-available/passenger.load:
 ```
-LoadModule passenger_module /home/openproject/.rbenv/versions/2.6.3/lib/ruby/gems/2.6.0/gems/passenger-6.0.4/buildout/apache2/mod_passenger.so
+LoadModule passenger_module /home/openproject/.rbenv/versions/3.7.2/lib/ruby/gems/2.6.0/gems/passenger-6.0.4/buildout/apache2/mod_passenger.so
 ```
 
 In /etc/apache2/mods-available/passenger.conf:
